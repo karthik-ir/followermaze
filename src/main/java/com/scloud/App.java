@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 
-import io.reactivex.Observable;
+import io.reactivex.Flowable;
 
 public class App {
 	private static ServerSocket clientServerSocket;
@@ -18,7 +18,6 @@ public class App {
 				try {
 					startServer();
 				} catch (IOException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 		}).start();
@@ -28,7 +27,7 @@ public class App {
 		Follower follower = new Follower();
 		Socket eventSocket = eventServerSocket.accept();
 
-		Observable<EventData> events = follower.getEvents(eventSocket);
+		Flowable<EventData> events = follower.getEvents(eventSocket);
 
 		follower.getClientConnections(clientServerSocket, events);
 	}

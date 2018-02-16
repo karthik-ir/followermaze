@@ -4,7 +4,8 @@ public class EventData {
 	String inputLine;
 	String fromUserId;
 	String toUserId;
-	EventTypes eventType;
+	Long messageNumber;
+	EventTypes eventType = null;
 
 	public EventData(String inputLine) {
 		super();

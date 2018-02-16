@@ -9,10 +9,15 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Comparator;
+import java.util.PriorityQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
+import io.reactivex.BackpressureStrategy;
+import io.reactivex.Flowable;
 import io.reactivex.Observable;
-import io.reactivex.ObservableEmitter;
-import io.reactivex.ObservableOnSubscribe;
+import io.reactivex.Scheduler;
 import io.reactivex.schedulers.Schedulers;
 
 /**
@@ -21,10 +26,33 @@ import io.reactivex.schedulers.Schedulers;
  */
 public class Follower {
 
+	int threadCount = Runtime.getRuntime().availableProcessors();
+	ExecutorService threadPoolExecutor = Executors.newFixedThreadPool(100);
+	Scheduler scheduler = Schedulers.from(threadPoolExecutor);
+
+	private static PriorityQueue<EventData> sortedEvents = new PriorityQueue<>(new Comparator<EventData>() {
+
+		@Override
+		public int compare(EventData o1, EventData o2) {
+			return (int) (o1.messageNumber - o1.messageNumber);
+		}
+	});
+	private static int count = 1;
+	private static final Object countLock = new Object();
+
+	public void incrementCount() {
+		synchronized (countLock) {
+			count++;
+		}
+	}
+
 	private void processInputLine(EventData model) throws InterruptedException {
+		// System.out.println("processing " + model.inputLine + " " +
+		// Thread.currentThread().getName());
 		String[] split = model.inputLine.split("\\|");
-		if (split.length >= 2) {
+		if (split.length >= 2 && EventTypes.fromString(split[1]) != null) {
 			EventTypes eventType = EventTypes.fromString(split[1]);
+			model.messageNumber = Long.parseLong(split[0]);
 			switch (eventType) {
 			case BROADCAST:
 				model.eventType = EventTypes.BROADCAST;
@@ -55,45 +83,51 @@ public class Follower {
 		}
 	}
 
-	public Observable<EventData> getEvents(Socket eventSocket) throws IOException {
-		Observable<EventData> create = Observable.create(new ObservableOnSubscribe<EventData>() {
-
-			@Override
-			public void subscribe(ObservableEmitter<EventData> emitter) throws Exception {
-				while (true) {
-					BufferedReader in = new BufferedReader(new InputStreamReader(eventSocket.getInputStream()));
-					String inputLine = in.readLine();
-					if (inputLine != null && !inputLine.isEmpty()) {
-						emitter.onNext(new EventData(inputLine));
-					}
-					// emitter.onError(new Throwable("SOMETHING WRONG"));
+	public Flowable<EventData> getEvents(Socket eventSocket) throws IOException {
+		Flowable<EventData> flowable = Flowable.create((source) -> {
+			BufferedReader in = new BufferedReader(new InputStreamReader(eventSocket.getInputStream()));
+			while (!source.isCancelled()) {
+				String inputLine = in.readLine();
+				if (inputLine != null && !inputLine.isEmpty()) {
+					source.onNext(new EventData(inputLine));
+					// System.out.println("Created " + inputLine + " at " + " " +
+					// Thread.currentThread().getName());
 				}
+				// emitter.onError(new Throwable("SOMETHING WRONG"));
 			}
-		}).map(model -> {
-			processInputLine(model);
+			source.onComplete();
+		}, BackpressureStrategy.BUFFER).map(model -> {
+			processInputLine((EventData) model);
+			return (EventData) model;
+		}).filter(model -> {
+			return (model.eventType != null);
+		}).map((model) -> {
+			sortedEvents.offer(model);
 			return model;
-		});
-		return create;
+		}).observeOn(scheduler).share();
+		return flowable;
 	}
 
-	public void getClientConnections(ServerSocket clientSocket, Observable<EventData> events) {
-		Observable.just(clientSocket).subscribeOn(Schedulers.newThread()).subscribe((cs) -> {
-			while (true) {
-				try {
-					Socket socket = clientSocket.accept();
-					Observable.just(socket).subscribeOn(Schedulers.newThread()).subscribe((x) -> {
-						String userId = readValueFromInputStream(socket);
-						UserData ud = new UserData(socket);
-						ud.userId = userId;
-						events.subscribeOn(Schedulers.newThread()).subscribe((event) -> {
-							processMessageAtClient(ud, event);
-						});
+	public void getClientConnections(ServerSocket clientSocket, Flowable<EventData> events) {
+		while (true) {
+			try {
+				Socket socket = clientSocket.accept();
+				// System.out.println("INITIAl" + " " + Thread.currentThread().getName());
+				Observable.just(socket).subscribeOn(scheduler).subscribe((x) -> {
+					String userId = readValueFromInputStream(socket);
+					UserData ud = new UserData(socket);
+					ud.userId = userId;
+					System.out.println(
+							socket.getPort() + " " + userId + " connected" + " " + Thread.currentThread().getName());
+					events.observeOn(scheduler).subscribe((event) -> {
+						processMessageAtClient(ud, event);
 					});
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
+					// observeOn(scheduler).subscribeOn(scheduler)
+				});
+			} catch (IOException e) {
+				e.printStackTrace();
 			}
-		});
+		}
 	}
 
 	private void processMessageAtClient(UserData ud, EventData event) {
@@ -101,17 +135,24 @@ public class Follower {
 		Socket socket = ud.socket;
 		String userId = ud.userId;
 
-		System.out.println(userId + " Received " + event.inputLine);
+		System.out.println(userId + " Received " + event.inputLine + " " + Thread.currentThread().getName());
 
+		
+//		while(event.messageNumber != sortedEvents.peek().messageNumber)
+			
 		if (event.eventType == EventTypes.FOLLOW && event.fromUserId.equals(userId)) {
 			ud.follows.add(event.toUserId);
 		}
-		if (event.eventType != EventTypes.UNFOLLOW && (event.eventType == EventTypes.BROADCAST
-				|| (event.eventType == EventTypes.STATUS_UPDATE && ud.follows.contains(event.fromUserId))
-				|| event.toUserId.equals(userId))) {
+
+		if (event.eventType != EventTypes.UNFOLLOW 
+				&& (event.eventType == EventTypes.BROADCAST
+						|| (event.eventType == EventTypes.STATUS_UPDATE && ud.follows.contains(event.fromUserId))
+						|| event.toUserId.equals(userId))) {
 			PrintWriter out;
 			try {
 				out = new PrintWriter(socket.getOutputStream(), true);
+				sortedEvents.poll();
+				incrementCount();
 				out.println(event.inputLine);
 				System.out.println("Sending " + event.inputLine);
 			} catch (IOException e) {
