@@ -26,9 +26,9 @@ import io.reactivex.schedulers.Schedulers;
  */
 public class Follower {
 
-	int threadCount = Runtime.getRuntime().availableProcessors();
-	ExecutorService threadPoolExecutor = Executors.newFixedThreadPool(1000);
-	Scheduler scheduler = Schedulers.from(threadPoolExecutor);
+	static int threadCount = Runtime.getRuntime().availableProcessors();
+	static ExecutorService threadPoolExecutor = Executors.newFixedThreadPool(1500);
+	static Scheduler scheduler = Schedulers.from(threadPoolExecutor);
 
 	private static Long count = 1L;
 	private static final Object countLock = new Object();
@@ -85,6 +85,8 @@ public class Follower {
 				break;
 			case UNFOLLOW:
 				model.eventType = EventTypes.UNFOLLOW;
+				model.toUserId = split[3];
+				model.fromUserId = split[2];
 				break;
 			default:
 				System.out.println("SKIPPING");
@@ -99,8 +101,6 @@ public class Follower {
 
 		@Override
 		public int compare(EventData o1, EventData o2) {
-			if (o1 == null || o2 == null)
-				System.out.println("PRINT ME");
 			return (int) (o1.messageNumber - o2.messageNumber);
 		}
 	});
@@ -157,7 +157,7 @@ public class Follower {
 					ud.userId = userId;
 					System.out.println(
 							socket.getPort() + " " + userId + " connected" + " " + Thread.currentThread().getName());
-					events.observeOn(scheduler).subscribeOn(scheduler).subscribe((event) -> {
+					events.subscribeOn(scheduler).subscribe((event) -> {
 						processMessageAtClient(ud, event);
 					});
 					// observeOn(scheduler).subscribeOn(scheduler)
@@ -173,10 +173,14 @@ public class Follower {
 		Socket socket = ud.socket;
 		String userId = ud.userId;
 
-//		System.out.println(userId + " Received " + event.inputLine + " " + Thread.currentThread().getName());
+		System.out.println(userId + " Received " + event.inputLine + " " + Thread.currentThread().getName());
 
-		if (event.eventType == EventTypes.UNFOLLOW)
+		if (event.eventType == EventTypes.UNFOLLOW) {
+			if(event.fromUserId.equals(userId)) {
+				ud.follows.remove(event.toUserId);
+			}
 			return;
+		}
 		if (event.eventType == EventTypes.BROADCAST) {
 			send(event, socket);
 			return;
@@ -184,14 +188,25 @@ public class Follower {
 		if (event.eventType == EventTypes.STATUS_UPDATE) {
 //			if(Long.toString(event.messageNumber).equals("129"))
 //				System.out.println(" POPOP "+event.fromUserId);
-			if (ud.follows.contains(event.fromUserId)) {
+			//&& (ud.notified.get(event.fromUserId)==null|| ud.notified.get(event.fromUserId)==false)
+			if (ud.follows.contains(event.fromUserId) ) {
 				send(event, socket);
+				ud.notified.put(event.fromUserId,true);
 			}
 			return;
 		}
-		if (event.eventType == EventTypes.FOLLOW && event.fromUserId.equals(userId)) {
-			ud.follows.add(event.toUserId);
-			 System.out.println(event.fromUserId + " is following " + ud.follows);
+		if (event.eventType == EventTypes.FOLLOW) {
+			if(event.fromUserId.equals(userId)) {
+				//If he is a fresh follower
+				ud.follows.add(event.toUserId);
+				System.out.println(event.fromUserId + " is following " + ud.follows);
+//			} else if(ud.follows.contains(event.toUserId)) {
+				//Reset the notified field on new follower addition.
+//				ud.notified.put(event.toUserId, false);
+			} else if (event.toUserId.equals(userId)) {
+				send(event, socket);
+			}
+			return;
 		}
 
 		if (event.toUserId.equals(userId)) {

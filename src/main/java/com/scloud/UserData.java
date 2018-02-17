@@ -4,8 +4,10 @@
 package com.scloud;
 
 import java.net.Socket;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * @author karthik
@@ -15,8 +17,8 @@ public class UserData {
 	String userId;
 	Socket socket;
 	long messageNumber = 0L;
-	List<String> follows = new ArrayList<>();
-
+	Set<String> follows = new HashSet<>();
+	Map<String,Boolean> notified = new HashMap<>();
 	public UserData(Socket socket) {
 		super();
 		this.socket = socket;

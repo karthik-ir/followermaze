@@ -29,6 +29,6 @@ public class App {
 
 		Observable<EventData> events = follower.events(eventSocket);
 
-		follower.getClientConnections(clientServerSocket, events);
+		follower.getClientConnections(clientServerSocket, events.observeOn(Follower.scheduler));
 	}
 }
