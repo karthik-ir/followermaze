@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 
-import io.reactivex.Flowable;
+import io.reactivex.Observable;
 
 public class App {
 	private static ServerSocket clientServerSocket;
@@ -27,7 +27,7 @@ public class App {
 		Follower follower = new Follower();
 		Socket eventSocket = eventServerSocket.accept();
 
-		Flowable<EventData> events = follower.getEvents(eventSocket);
+		Observable<EventData> events = follower.events(eventSocket);
 
 		follower.getClientConnections(clientServerSocket, events);
 	}

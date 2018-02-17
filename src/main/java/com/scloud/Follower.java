@@ -27,22 +27,34 @@ import io.reactivex.schedulers.Schedulers;
 public class Follower {
 
 	int threadCount = Runtime.getRuntime().availableProcessors();
-	ExecutorService threadPoolExecutor = Executors.newFixedThreadPool(100);
+	ExecutorService threadPoolExecutor = Executors.newFixedThreadPool(1000);
 	Scheduler scheduler = Schedulers.from(threadPoolExecutor);
 
-	private static PriorityQueue<EventData> sortedEvents = new PriorityQueue<>(new Comparator<EventData>() {
-
-		@Override
-		public int compare(EventData o1, EventData o2) {
-			return (int) (o1.messageNumber - o1.messageNumber);
-		}
-	});
-	private static int count = 1;
+	private static Long count = 1L;
 	private static final Object countLock = new Object();
+	private static final Object queueLock = new Object();
 
 	public void incrementCount() {
 		synchronized (countLock) {
 			count++;
+		}
+	}
+
+	public EventData poll() {
+		synchronized (queueLock) {
+			return sortedEvents.poll();
+		}
+	}
+
+	public void offer(EventData data) {
+		synchronized (queueLock) {
+			sortedEvents.offer(data);
+		}
+	}
+
+	public EventData peek() {
+		synchronized (queueLock) {
+			return sortedEvents.peek();
 		}
 	}
 
@@ -69,7 +81,7 @@ public class Follower {
 			case STATUS_UPDATE:
 				model.eventType = EventTypes.STATUS_UPDATE;
 				// TODO: add all the followers to the userIds list
-				model.toUserId = split[2];
+				model.fromUserId = split[2];
 				break;
 			case UNFOLLOW:
 				model.eventType = EventTypes.UNFOLLOW;
@@ -83,43 +95,69 @@ public class Follower {
 		}
 	}
 
-	public Flowable<EventData> getEvents(Socket eventSocket) throws IOException {
-		Flowable<EventData> flowable = Flowable.create((source) -> {
+	static PriorityQueue<EventData> sortedEvents = new PriorityQueue<>(new Comparator<EventData>() {
+
+		@Override
+		public int compare(EventData o1, EventData o2) {
+			if (o1 == null || o2 == null)
+				System.out.println("PRINT ME");
+			return (int) (o1.messageNumber - o2.messageNumber);
+		}
+	});
+
+	public Observable events(Socket eventSocket) throws IOException {
+		Observable loopObservable = Observable.create((x) -> {
+			// System.out.println("Looking for queue on " +
+			// Thread.currentThread().getName());
+			while (true) {
+				if (!sortedEvents.isEmpty() && peek() != null
+						&& Long.toString(peek().messageNumber).equals(Long.toString(count))) {
+					x.onNext(poll());
+					incrementCount();
+				}
+			}
+		}).observeOn(scheduler).share();
+
+		getEvents(eventSocket);
+
+		return loopObservable;
+	}
+
+	public void getEvents(Socket eventSocket) throws IOException {
+		Flowable.create((source) -> {
 			BufferedReader in = new BufferedReader(new InputStreamReader(eventSocket.getInputStream()));
 			while (!source.isCancelled()) {
 				String inputLine = in.readLine();
 				if (inputLine != null && !inputLine.isEmpty()) {
-					source.onNext(new EventData(inputLine));
+					EventData value = new EventData(inputLine);
+					source.onNext(value);
 					// System.out.println("Created " + inputLine + " at " + " " +
 					// Thread.currentThread().getName());
 				}
-				// emitter.onError(new Throwable("SOMETHING WRONG"));
 			}
 			source.onComplete();
-		}, BackpressureStrategy.BUFFER).map(model -> {
+		}, BackpressureStrategy.BUFFER).observeOn(scheduler).subscribeOn(scheduler).map(model -> {
 			processInputLine((EventData) model);
 			return (EventData) model;
-		}).filter(model -> {
-			return (model.eventType != null);
-		}).map((model) -> {
-			sortedEvents.offer(model);
-			return model;
-		}).observeOn(scheduler).share();
-		return flowable;
+		}).subscribe((x) -> {
+			// System.out.println("EVENT SUBSCRIBE " + x.messageNumber + " at " + " " +
+			// Thread.currentThread().getName());
+			offer(x);
+		});
 	}
 
-	public void getClientConnections(ServerSocket clientSocket, Flowable<EventData> events) {
+	public void getClientConnections(ServerSocket clientSocket, Observable<EventData> events) {
 		while (true) {
 			try {
 				Socket socket = clientSocket.accept();
 				// System.out.println("INITIAl" + " " + Thread.currentThread().getName());
-				Observable.just(socket).subscribeOn(scheduler).subscribe((x) -> {
+				Observable.just(socket).observeOn(scheduler).subscribe((x) -> {
 					String userId = readValueFromInputStream(socket);
 					UserData ud = new UserData(socket);
 					ud.userId = userId;
 					System.out.println(
 							socket.getPort() + " " + userId + " connected" + " " + Thread.currentThread().getName());
-					events.observeOn(scheduler).subscribe((event) -> {
+					events.observeOn(scheduler).subscribeOn(scheduler).subscribe((event) -> {
 						processMessageAtClient(ud, event);
 					});
 					// observeOn(scheduler).subscribeOn(scheduler)
@@ -135,29 +173,42 @@ public class Follower {
 		Socket socket = ud.socket;
 		String userId = ud.userId;
 
-		System.out.println(userId + " Received " + event.inputLine + " " + Thread.currentThread().getName());
+//		System.out.println(userId + " Received " + event.inputLine + " " + Thread.currentThread().getName());
 
-		
-//		while(event.messageNumber != sortedEvents.peek().messageNumber)
-			
+		if (event.eventType == EventTypes.UNFOLLOW)
+			return;
+		if (event.eventType == EventTypes.BROADCAST) {
+			send(event, socket);
+			return;
+		}
+		if (event.eventType == EventTypes.STATUS_UPDATE) {
+//			if(Long.toString(event.messageNumber).equals("129"))
+//				System.out.println(" POPOP "+event.fromUserId);
+			if (ud.follows.contains(event.fromUserId)) {
+				send(event, socket);
+			}
+			return;
+		}
 		if (event.eventType == EventTypes.FOLLOW && event.fromUserId.equals(userId)) {
 			ud.follows.add(event.toUserId);
+			 System.out.println(event.fromUserId + " is following " + ud.follows);
 		}
 
-		if (event.eventType != EventTypes.UNFOLLOW 
-				&& (event.eventType == EventTypes.BROADCAST
-						|| (event.eventType == EventTypes.STATUS_UPDATE && ud.follows.contains(event.fromUserId))
-						|| event.toUserId.equals(userId))) {
-			PrintWriter out;
-			try {
-				out = new PrintWriter(socket.getOutputStream(), true);
-				sortedEvents.poll();
-				incrementCount();
-				out.println(event.inputLine);
-				System.out.println("Sending " + event.inputLine);
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
+		if (event.toUserId.equals(userId)) {
+			send(event, socket);
+			return;
+		}
+
+	}
+
+	private void send(EventData event, Socket socket) {
+		PrintWriter out;
+		try {
+			out = new PrintWriter(socket.getOutputStream(), true);
+			out.println(event.inputLine);
+			System.out.println("Sending " + event.inputLine + " " + Thread.currentThread().getName());
+		} catch (IOException e) {
+			e.printStackTrace();
 		}
 	}
 
