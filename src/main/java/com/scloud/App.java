@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 
+import io.reactivex.Flowable;
 import io.reactivex.Observable;
 
 public class App {
@@ -16,19 +17,24 @@ public class App {
 		new Thread(() -> {
 			while (true)
 				try {
-					startServer();
+					begin(clientServerSocket, eventServerSocket.accept());
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
 		}).start();
 	}
+	
+	private static void begin(ServerSocket clientServerSocket , Socket eventSocket) throws IOException {
+		ObservableProvider provider = new ObservableProvider();
+		ObserverProvider follower = new ObserverProvider();
+		//Observables
+		Observable<EventData> queueObservable = provider.getQueueObservable();
+		Flowable<EventData> eventsObservable = provider.getEventsObservable(eventSocket);
+		
+		
+		//Observers
+		follower.subscribeWithEventProvider(eventsObservable);
+		follower.watchForClientAndSubscribeWithQueue(clientServerSocket, queueObservable );
 
-	private static void startServer() throws IOException {
-		Follower follower = new Follower();
-		Socket eventSocket = eventServerSocket.accept();
-
-		Observable<EventData> events = follower.events(eventSocket);
-
-		follower.getClientConnections(clientServerSocket, events.observeOn(Follower.scheduler));
 	}
 }
