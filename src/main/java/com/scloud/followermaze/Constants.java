@@ -19,11 +19,30 @@ public class Constants {
 	private static int threadCount = Runtime.getRuntime().availableProcessors();
 	public static ExecutorService threadPoolExecutor = Executors.newFixedThreadPool(threadCount);
 
-	public static Long messageSendNumber = 1L;
+	private static Long messageSendNumber = 1L;
 	private static final Object countLock = new Object();
 	private static final Object queueLock = new Object();
-	
+	private static final Object serverLock = new Object();
+	private static Boolean complete = false;
 
+	public static Boolean isComplete() {
+		synchronized (serverLock) {
+			return complete;
+		}
+	}
+
+	public static void setComplete(Boolean value) {
+		synchronized (serverLock) {
+			complete = value;
+		}
+	}
+
+	public static Long getMessageCounter() {
+		synchronized (countLock) {
+			return messageSendNumber;
+		}
+		
+	}
 	public static void incrementCount() {
 		synchronized (countLock) {
 			messageSendNumber++;
@@ -42,6 +61,12 @@ public class Constants {
 		}
 	}
 
+	public static boolean isEmpty() {
+		synchronized (queueLock) {
+			return sortedEvents.isEmpty();
+		}
+	}
+
 	public static EventData peek() {
 		synchronized (queueLock) {
 			return sortedEvents.peek();
@@ -49,7 +74,6 @@ public class Constants {
 	}
 
 	private static PriorityQueue<EventData> sortedEvents = new PriorityQueue<>(new Comparator<EventData>() {
-
 		@Override
 		public int compare(EventData o1, EventData o2) {
 			return (int) (o1.getMessageNumber() - o2.getMessageNumber());
