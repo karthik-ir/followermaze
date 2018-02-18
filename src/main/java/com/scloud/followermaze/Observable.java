@@ -3,6 +3,7 @@
  */
 package com.scloud.followermaze;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -25,7 +26,7 @@ public class Observable {
 		return data;
 	}
 
-	public void setData(EventData data) {
+	public void setData(EventData data) throws IOException {
 		this.data = data;
 		notifyAllObservers();
 	}
@@ -42,7 +43,7 @@ public class Observable {
 		observers.add(observer);
 	}
 
-	public void notifyAllObservers() {
+	public void notifyAllObservers() throws IOException {
 		for (Observer observer : observers) {
 			observer.subscribe();
 		}

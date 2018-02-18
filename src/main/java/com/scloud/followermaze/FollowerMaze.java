@@ -30,45 +30,43 @@ public class FollowerMaze {
 	private ServerSocket clientServerSocket;
 	private ServerSocket eventServerSocket;
 	List<Socket> clientSockets;
+	Constants constants;
 
 	public FollowerMaze(ServerSocket clientServerSocket, ServerSocket eventServerSocket) {
 		this.clientServerSocket = clientServerSocket;
 		this.eventServerSocket = eventServerSocket;
 		this.clientSockets = new ArrayList<>();
+		constants = new Constants();
 	}
 
 	public void begin(ServerSocket clientServerSocket, Socket eventSocket) {
 
 		Observable subject = new Observable();
 
-		Constants.threadPoolExecutor.submit(() -> {
+		constants.threadPoolExecutor.execute(() -> {
 			readInputstreamAndEnqueue(eventSocket);
 		});
 
-		Constants.threadPoolExecutor.execute(() -> {
+		constants.threadPoolExecutor.execute(() -> {
 			try {
 				eventProducer(subject);
 			} catch (IOException e) {
 				logger.error("FATAL!! Error while closing the socket. ", e);
+				shutDown();
 			}
 		});
 
-		Constants.threadPoolExecutor.execute(() -> {
-			try {
-				waitForClientsAndSubscribe(clientServerSocket, subject);
-			} catch (IOException | InterruptedException e) {
-				e.printStackTrace();
-			}
+		constants.threadPoolExecutor.execute(() -> {
+			waitForClientsAndSubscribe(clientServerSocket, subject);
 		});
 	}
 
-	private void waitForClientsAndSubscribe(ServerSocket clientServerSocket, Observable subject)
-			throws IOException, InterruptedException {
+	private void waitForClientsAndSubscribe(ServerSocket clientServerSocket, Observable subject) {
 		try {
-			while (!Constants.isEmpty() || !Constants.isComplete()) {
+			while (!constants.isEmpty() || !constants.isComplete()) {
 				Socket socket = clientServerSocket.accept();
 				clientSockets.add(socket);
-				Constants.threadPoolExecutor.execute(() -> {
+				constants.threadPoolExecutor.execute(() -> {
 					try {
 						String userId;
 						userId = new Helper().readValueFromInputStream(socket.getInputStream());
@@ -89,19 +87,19 @@ public class FollowerMaze {
 			throw new RuntimeException(e);
 		} finally {
 			logger.info("Shutting Down. Bye!");
-			Constants.threadPoolExecutor.shutdown();
+			constants.threadPoolExecutor.shutdown();
 		}
 	}
 
 	private void eventProducer(Observable subject) throws IOException {
 		logger.info("Started to watch queue for new messages...");
-		while (!(Constants.isEmpty() && Constants.isComplete())) {
-			EventData peek = Constants.peek();
+		while (!(constants.isEmpty() && constants.isComplete())) {
+			EventData peek = constants.peek();
 			if (peek != null
-					&& Long.toString(peek.getMessageNumber()).equals(Long.toString(Constants.getMessageCounter()))) {
-				EventData latestEvent = Constants.poll();
+					&& Long.toString(peek.getMessageNumber()).equals(Long.toString(constants.getMessageCounter()))) {
+				EventData latestEvent = constants.poll();
 				subject.setData(latestEvent);
-				Constants.incrementCount();
+				constants.incrementCount();
 			}
 		}
 		logger.debug("Closing Sockets");
@@ -128,17 +126,27 @@ public class FollowerMaze {
 				if (inputLine != null && !inputLine.isEmpty()) {
 					EventData value = new EventData(inputLine);
 					new Helper().processInputLine(value);
-					Constants.offer(value);
+					constants.offer(value);
 				}
 			}
 			in.close();
 			eventSocket.close();
-			Constants.setComplete(true);
+			constants.setComplete(true);
 			eventServerSocket.close();
 		} catch (IOException | BadInputException e) {
 			logger.error("Error while reading Event Inputstream ", e);
 		} finally {
 			logger.info("Stopped reading of events");
 		}
+	}
+
+	public void shutDown() {
+		try {
+			eventServerSocket.close();
+			clientServerSocket.close();
+		} catch (IOException e) {
+			throw new RuntimeException("Error on stopping server");
+		}
+
 	}
 }

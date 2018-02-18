@@ -26,7 +26,7 @@ public class Helper {
 	private static final Logger logger = LogManager.getLogger(Helper.class);
 
 	public void processInputLine(EventData model) throws BadInputException {
-		if (model==null || model.getInputLine() == null)
+		if (model == null || model.getInputLine() == null)
 			throw new BadInputException("input value is null", null);
 		String[] split = model.getInputLine().split("\\|");
 		EventTypes eventType = EventTypes.fromString(split[1]);
@@ -69,18 +69,19 @@ public class Helper {
 		return inputLine;
 	}
 
-	public void send(EventData event, UserData user) {
+	public void send(EventData event, UserData user) throws IOException {
 		PrintWriter out;
 		try {
 			logger.info("Sending {} to {} ", event.getInputLine(), user.getUserId());
 			out = new PrintWriter(user.getSocket().getOutputStream(), true);
 			out.println(event.getInputLine());
 		} catch (IOException e) {
-			logger.error(" Error sending {} ", event.getInputLine(), e);
+			logger.error(" Error getting Output stream while sending {} ", event.getInputLine(), e);
+			throw e;
 		}
 	}
 
-	public void checkIfEventValidAndNotify(UserData ud, EventData event) {
+	public void checkIfEventValidAndNotify(UserData ud, EventData event) throws IOException {
 		String userId = ud.getUserId();
 		switch (event.getEventType()) {
 		case BROADCAST:

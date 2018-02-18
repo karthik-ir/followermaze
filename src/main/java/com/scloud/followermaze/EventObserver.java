@@ -1,5 +1,7 @@
 package com.scloud.followermaze;
 
+import java.io.IOException;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -17,7 +19,7 @@ public class EventObserver extends Observer {
 	}
 
 	@Override
-	public void subscribe() {
+	public void subscribe() throws IOException {
 		logger.debug("{} Received {} ", userData.getUserId(), subject.getData().getInputLine());
 		new Helper().checkIfEventValidAndNotify(userData, subject.getData());
 	}
