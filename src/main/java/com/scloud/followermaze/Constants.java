@@ -10,9 +10,6 @@ import java.util.concurrent.Executors;
 
 import com.scloud.followermaze.model.EventData;
 
-import io.reactivex.Scheduler;
-import io.reactivex.schedulers.Schedulers;
-
 /**
  * @author karthik
  *
@@ -21,7 +18,6 @@ public class Constants {
 
 	private static int threadCount = Runtime.getRuntime().availableProcessors();
 	public static ExecutorService threadPoolExecutor = Executors.newFixedThreadPool(threadCount);
-	public static Scheduler scheduler = Schedulers.from(threadPoolExecutor);
 
 	public static Long messageSendNumber = 1L;
 	private static final Object countLock = new Object();
