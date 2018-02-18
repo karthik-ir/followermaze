@@ -1,3 +1,6 @@
+/**
+ * 
+ */
 package com.scloud.followermaze;
 
 import java.io.BufferedReader;
@@ -16,30 +19,25 @@ import com.scloud.followermaze.exception.BadInputException;
 import com.scloud.followermaze.model.EventData;
 import com.scloud.followermaze.model.UserData;
 
-public class App {
-	private static ServerSocket clientServerSocket;
-	private static ServerSocket eventServerSocket;
+/**
+ * @author karthik
+ *
+ */
+public class FollowerMaze {
 
-	private static final Logger logger = LogManager.getLogger(App.class);
+	private static final Logger logger = LogManager.getLogger(FollowerMaze.class);
 
-	public static void main(String[] args) throws IOException {
-		logger.info("Starting....");
-		String clientPort = System.getenv("clientListenerPort");
-		String eventPort = System.getenv("eventListenerPort");
+	private ServerSocket clientServerSocket;
+	private ServerSocket eventServerSocket;
+	List<Socket> clientSockets;
 
-		clientServerSocket = new ServerSocket(clientPort != null ? Integer.parseInt(clientPort) : 9099);
-		eventServerSocket = new ServerSocket(eventPort != null ? Integer.parseInt(eventPort) : 9090);
-
-		// RUN the server
-		try {
-			begin(clientServerSocket, eventServerSocket.accept());
-		} catch (IOException | InterruptedException e) {
-			logger.error("ERROR Downstream ", e);
-		}
+	public FollowerMaze(ServerSocket clientServerSocket, ServerSocket eventServerSocket) {
+		this.clientServerSocket = clientServerSocket;
+		this.eventServerSocket = eventServerSocket;
+		this.clientSockets = new ArrayList<>();
 	}
 
-	private static void begin(ServerSocket clientServerSocket, Socket eventSocket)
-			throws IOException, InterruptedException {
+	public void begin(ServerSocket clientServerSocket, Socket eventSocket) {
 
 		Observable subject = new Observable();
 
@@ -62,18 +60,14 @@ public class App {
 				e.printStackTrace();
 			}
 		});
-
 	}
 
-	static List<Socket> sockets = new ArrayList<>();
-
-	private static void waitForClientsAndSubscribe(ServerSocket clientServerSocket, Observable subject)
+	private void waitForClientsAndSubscribe(ServerSocket clientServerSocket, Observable subject)
 			throws IOException, InterruptedException {
 		try {
 			while (!Constants.isEmpty() || !Constants.isComplete()) {
-
 				Socket socket = clientServerSocket.accept();
-				sockets.add(socket);
+				clientSockets.add(socket);
 				Constants.threadPoolExecutor.execute(() -> {
 					try {
 						String userId;
@@ -88,7 +82,6 @@ public class App {
 					}
 				});
 			}
-
 		} catch (SocketException e) {
 			logger.info("Stopped Subscribing for clients");
 		} catch (IOException e) {
@@ -100,7 +93,7 @@ public class App {
 		}
 	}
 
-	private static void eventProducer(Observable subject) throws IOException {
+	private void eventProducer(Observable subject) throws IOException {
 		logger.info("Started to watch queue for new messages...");
 		while (!(Constants.isEmpty() && Constants.isComplete())) {
 			EventData peek = Constants.peek();
@@ -111,22 +104,20 @@ public class App {
 				Constants.incrementCount();
 			}
 		}
-
 		logger.debug("Closing Sockets");
-		sockets.stream().parallel().forEach(x -> {
+		clientSockets.stream().parallel().forEach(x -> {
 			try {
 				x.close();
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
 		});
-		
 		logger.debug("closing client server socket");
 		clientServerSocket.close();
 		logger.info("Stopped listening to Queue");
 	}
 
-	private static void readInputstreamAndEnqueue(Socket eventSocket) {
+	private void readInputstreamAndEnqueue(Socket eventSocket) {
 		try {
 			logger.info("Started to look for incoming events.");
 			BufferedReader in = new BufferedReader(new InputStreamReader(eventSocket.getInputStream()));
