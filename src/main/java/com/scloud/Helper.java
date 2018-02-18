@@ -9,15 +9,19 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 /**
  * @author karthik
  *
  */
 public class Helper {
 
+	private static final Logger logger = LogManager.getLogger(Helper.class);
+
 	public void processInputLine(EventData model) throws InterruptedException {
-		// System.out.println("processing " + model.inputLine + " " +
-		// Thread.currentThread().getName());
+		logger.debug("Processing {} ", model.inputLine);
 		String[] split = model.inputLine.split("\\|");
 		if (split.length >= 2 && EventTypes.fromString(split[1]) != null) {
 			EventTypes eventType = EventTypes.fromString(split[1]);
@@ -37,7 +41,6 @@ public class Helper {
 				break;
 			case STATUS_UPDATE:
 				model.eventType = EventTypes.STATUS_UPDATE;
-				// TODO: add all the followers to the userIds list
 				model.fromUserId = split[2];
 				break;
 			case UNFOLLOW:
@@ -46,70 +49,59 @@ public class Helper {
 				model.fromUserId = split[2];
 				break;
 			default:
-				System.out.println("SKIPPING");
+				logger.error("Wrong Input {} ", split);
 				break;
 			}
-		} else {
-			System.out.println("SOMETHING WRONG WITH INPUT");
 		}
 	}
-	
+
 	public String readValueFromInputStream(Socket x) throws IOException {
 		BufferedReader in = new BufferedReader(new InputStreamReader(x.getInputStream()));
 		String inputLine = in.readLine();
 		return inputLine;
 	}
-	
+
 	public void send(EventData event, Socket socket) {
 		PrintWriter out;
 		try {
+			logger.info("Sending {}", event.inputLine);
 			out = new PrintWriter(socket.getOutputStream(), true);
 			out.println(event.inputLine);
-			System.out.println("Sending " + event.inputLine + " " + Thread.currentThread().getName());
 		} catch (IOException e) {
-			e.printStackTrace();
+			logger.error(" Error sending {} ", event.inputLine, e);
 		}
 	}
-	
-	public void checkIfEventValidAndProceed(UserData ud, EventData event, Helper helper, Socket socket,
-			String userId) {
-		if (event.eventType == EventTypes.UNFOLLOW) {
-			if(event.fromUserId.equals(userId)) {
-				ud.follows.remove(event.toUserId);
-			}
-			return;
-		}
-		if (event.eventType == EventTypes.BROADCAST) {
+
+	public void checkIfEventValidAndNotify(UserData ud, EventData event, Helper helper, Socket socket, String userId) {
+		switch (event.eventType) {
+		case BROADCAST:
 			helper.send(event, socket);
-			return;
-		}
-		if (event.eventType == EventTypes.STATUS_UPDATE) {
-//			if(Long.toString(event.messageNumber).equals("129"))
-//				System.out.println(" POPOP "+event.fromUserId);
-			//&& (ud.notified.get(event.fromUserId)==null|| ud.notified.get(event.fromUserId)==false)
-			if (ud.follows.contains(event.fromUserId) ) {
-				helper.send(event, socket);
-				ud.notified.put(event.fromUserId,true);
-			}
-			return;
-		}
-		if (event.eventType == EventTypes.FOLLOW) {
-			if(event.fromUserId.equals(userId)) {
-				//If he is a fresh follower
+			break;
+		case FOLLOW:
+			if (event.fromUserId.equals(userId)) {
 				ud.follows.add(event.toUserId);
-//				System.out.println(event.fromUserId + " is following " + ud.follows);
-//			} else if(ud.follows.contains(event.toUserId)) {
-				//Reset the notified field on new follower addition.
-//				ud.notified.put(event.toUserId, false);
 			} else if (event.toUserId.equals(userId)) {
 				helper.send(event, socket);
 			}
-			return;
-		}
+			break;
+		case PRIVATE:
+			if (event.toUserId.equals(userId)) {
+				helper.send(event, socket);
+			}
+			break;
+		case STATUS_UPDATE:
+			if (ud.follows.contains(event.fromUserId)) {
+				helper.send(event, socket);
+			}
+			break;
+		case UNFOLLOW:
+			if (event.fromUserId.equals(userId)) {
+				ud.follows.remove(event.toUserId);
+			}
+			break;
+		default:
+			break;
 
-		if (event.toUserId.equals(userId)) {
-			helper.send(event, socket);
-			return;
 		}
 	}
 }

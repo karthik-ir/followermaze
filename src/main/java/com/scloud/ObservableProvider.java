@@ -8,6 +8,9 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.Socket;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import io.reactivex.BackpressureStrategy;
 import io.reactivex.Flowable;
 import io.reactivex.Observable;
@@ -18,6 +21,8 @@ import io.reactivex.Observable;
  */
 public class ObservableProvider {
 
+	private static final Logger logger = LogManager.getLogger(ObservableProvider.class);
+
 	public Flowable<EventData> getEventsObservable(Socket eventSocket) throws IOException {
 		return Flowable.create((source) -> {
 			BufferedReader in = new BufferedReader(new InputStreamReader(eventSocket.getInputStream()));
@@ -26,8 +31,7 @@ public class ObservableProvider {
 				if (inputLine != null && !inputLine.isEmpty()) {
 					EventData value = new EventData(inputLine);
 					source.onNext(value);
-					// System.out.println("Created " + inputLine + " at " + " " +
-					// Thread.currentThread().getName());
+					logger.debug("Created {} ", inputLine);
 				}
 			}
 			in.close();
@@ -37,18 +41,21 @@ public class ObservableProvider {
 			return (EventData) model;
 		});
 	}
-	
+
 	public Observable<EventData> getQueueObservable() {
 		return Observable.create((x) -> {
-//			 System.out.println("Looking for queue on " +
-//			 Thread.currentThread().getName());
 			while (true) {
-				if (!Constants.sortedEvents.isEmpty() && Constants.peek() != null
-						&& Long.toString(Constants.peek().messageNumber).equals(Long.toString(Constants.count))) {
-					x.onNext(Constants.poll());
+				EventData peek = Constants.peek();
+				if (peek != null
+						&& Long.toString(peek.messageNumber).equals(Long.toString(Constants.count))) {
+					EventData latestEvent = Constants.poll();
+					x.onNext(latestEvent);
 					Constants.incrementCount();
+					logger.debug("Latest event {}", latestEvent.inputLine);
 				}
 			}
-		}).observeOn(Constants.scheduler).share().map(raw->{return (EventData) raw;});
+		}).observeOn(Constants.scheduler).share().map(raw -> {
+			return (EventData) raw;
+		});
 	}
 }

@@ -20,7 +20,6 @@ public class Constants {
 	static int threadCount = Runtime.getRuntime().availableProcessors();
 	static ExecutorService threadPoolExecutor = Executors.newFixedThreadPool(threadCount);
 	static Scheduler scheduler = Schedulers.from(threadPoolExecutor);
-	
 
 	static Long count = 1L;
 	private static final Object countLock = new Object();
@@ -34,24 +33,24 @@ public class Constants {
 	}
 
 	public static EventData poll() {
-		synchronized (queueLock) {
+//		synchronized (queueLock) {
 			return sortedEvents.poll();
-		}
+//		}
 	}
 
 	public static void offer(EventData data) {
-		synchronized (queueLock) {
+//		synchronized (queueLock) {
 			sortedEvents.offer(data);
-		}
+//		}
 	}
 
 	public static EventData peek() {
-		synchronized (queueLock) {
+//		synchronized (queueLock) {
 			return sortedEvents.peek();
-		}
+//		}
 	}
 
-	static PriorityQueue<EventData> sortedEvents = new PriorityQueue<>(new Comparator<EventData>() {
+	private static PriorityQueue<EventData> sortedEvents = new PriorityQueue<>(new Comparator<EventData>() {
 
 		@Override
 		public int compare(EventData o1, EventData o2) {
