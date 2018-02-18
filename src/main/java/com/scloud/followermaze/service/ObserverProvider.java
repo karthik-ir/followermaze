@@ -1,7 +1,7 @@
 /**
  * 
  */
-package com.scloud.follower.service;
+package com.scloud.followermaze.service;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -10,9 +10,9 @@ import java.net.Socket;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.scloud.follower.Constants;
-import com.scloud.follower.model.EventData;
-import com.scloud.follower.model.UserData;
+import com.scloud.followermaze.Constants;
+import com.scloud.followermaze.model.EventData;
+import com.scloud.followermaze.model.UserData;
 
 import io.reactivex.Flowable;
 import io.reactivex.Observable;

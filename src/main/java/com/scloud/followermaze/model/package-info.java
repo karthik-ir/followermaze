@@ -5,4 +5,4 @@
  * @author karthik
  *
  */
-package com.scloud.follower.service;
+package com.scloud.followermaze.model;

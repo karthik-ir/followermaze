@@ -1,15 +1,15 @@
 /**
  * 
  */
-package com.scloud.follower.service;
+package com.scloud.followermaze.service;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.Socket;
 
-import com.scloud.follower.Constants;
-import com.scloud.follower.model.EventData;
+import com.scloud.followermaze.Constants;
+import com.scloud.followermaze.model.EventData;
 
 import io.reactivex.BackpressureStrategy;
 import io.reactivex.Flowable;

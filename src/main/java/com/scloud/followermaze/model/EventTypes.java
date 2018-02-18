@@ -1,7 +1,7 @@
 /**
  * 
  */
-package com.scloud.follower.model;
+package com.scloud.followermaze.model;
 
 /**
  * @author karthik

@@ -1,4 +1,4 @@
-package com.scloud.follower.model;
+package com.scloud.followermaze.model;
 
 public class EventData {
 	private String inputLine;

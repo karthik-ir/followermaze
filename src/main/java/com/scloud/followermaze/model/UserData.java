@@ -1,7 +1,7 @@
 /**
  * 
  */
-package com.scloud.follower.model;
+package com.scloud.followermaze.model;
 
 import java.net.Socket;
 import java.util.HashSet;

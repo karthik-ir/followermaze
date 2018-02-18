@@ -1,14 +1,14 @@
 /**
  * 
  */
-package com.scloud.follower;
+package com.scloud.followermaze;
 
 import java.util.Comparator;
 import java.util.PriorityQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import com.scloud.follower.model.EventData;
+import com.scloud.followermaze.model.EventData;
 
 import io.reactivex.Scheduler;
 import io.reactivex.schedulers.Schedulers;
@@ -20,7 +20,7 @@ import io.reactivex.schedulers.Schedulers;
 public class Constants {
 
 	private static int threadCount = Runtime.getRuntime().availableProcessors();
-	private static ExecutorService threadPoolExecutor = Executors.newFixedThreadPool(threadCount);
+	public static ExecutorService threadPoolExecutor = Executors.newFixedThreadPool(threadCount);
 	public static Scheduler scheduler = Schedulers.from(threadPoolExecutor);
 
 	public static Long messageSendNumber = 1L;

@@ -1,4 +1,4 @@
-package com.scloud.follower;
+package com.scloud.followermaze;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -7,9 +7,9 @@ import java.net.Socket;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.scloud.follower.model.EventData;
-import com.scloud.follower.service.ObservableProvider;
-import com.scloud.follower.service.ObserverProvider;
+import com.scloud.followermaze.model.EventData;
+import com.scloud.followermaze.service.ObservableProvider;
+import com.scloud.followermaze.service.ObserverProvider;
 
 import io.reactivex.Flowable;
 import io.reactivex.Observable;
@@ -22,16 +22,20 @@ public class App {
 
 	public static void main(String[] args) throws IOException {
 		logger.info("Waiting for client to connect...");
-		clientServerSocket = new ServerSocket(9099);
-		eventServerSocket = new ServerSocket(9090);
-		new Thread(() -> {
+		String clientPort = System.getenv("clientListenerPort");
+		String eventPort = System.getenv("eventListenerPort");
+
+		clientServerSocket = new ServerSocket(clientPort != null ? Integer.parseInt(clientPort) : 9099);
+		eventServerSocket = new ServerSocket(eventPort != null ? Integer.parseInt(eventPort) : 9090);
+		
+		Constants.threadPoolExecutor.execute(() -> {
 			while (true)
 				try {
 					begin(clientServerSocket, eventServerSocket.accept());
 				} catch (IOException e) {
 					logger.error("ERROR Downstream ", e);
 				}
-		}).start();
+		});
 	}
 
 	private static void begin(ServerSocket clientServerSocket, Socket eventSocket) throws IOException {
