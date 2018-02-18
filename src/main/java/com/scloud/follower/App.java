@@ -1,4 +1,4 @@
-package com.scloud;
+package com.scloud.follower;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -6,6 +6,10 @@ import java.net.Socket;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import com.scloud.follower.model.EventData;
+import com.scloud.follower.service.ObservableProvider;
+import com.scloud.follower.service.ObserverProvider;
 
 import io.reactivex.Flowable;
 import io.reactivex.Observable;

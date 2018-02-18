@@ -1,7 +1,7 @@
 /**
  * 
  */
-package com.scloud;
+package com.scloud.follower.service;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -9,6 +9,10 @@ import java.net.Socket;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import com.scloud.follower.Constants;
+import com.scloud.follower.model.EventData;
+import com.scloud.follower.model.UserData;
 
 import io.reactivex.Flowable;
 import io.reactivex.Observable;
@@ -23,7 +27,6 @@ public class ObserverProvider {
 
 	public void subscribeWithEventProvider(Flowable<EventData> eventsObservable) {
 		eventsObservable.subscribe((x) -> {
-			logger.debug("Adding message: {} to the queue", x.messageNumber);
 			Constants.offer(x);
 		});
 	}
@@ -37,8 +40,8 @@ public class ObserverProvider {
 				Observable.just(socket).observeOn(Constants.scheduler).subscribe((x) -> {
 					String userId = new Helper().readValueFromInputStream(socket);
 					UserData ud = new UserData(socket);
-					ud.userId = userId;
-					logger.debug("Client {} Connected on port {} ", userId, socket.getPort());
+					ud.setUserId(userId);
+					logger.info("Client {} Connected on port {} ", userId, socket.getPort());
 					events.observeOn(Constants.scheduler).subscribe((event) -> {
 						followEventObserver(ud, event);
 					});
@@ -51,10 +54,7 @@ public class ObserverProvider {
 	}
 
 	private void followEventObserver(UserData ud, EventData event) {
-		Helper helper = new Helper();
-		Socket socket = ud.socket;
-		String userId = ud.userId;
-		logger.debug("{} Received {} ", userId, event.inputLine);
-		new Helper().checkIfEventValidAndNotify(ud, event, helper, socket, userId);
+		logger.debug("{} Received {} ", ud.getUserId(), event.getInputLine());
+		new Helper().checkIfEventValidAndNotify(ud, event);
 	}
 }

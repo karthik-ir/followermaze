@@ -1,12 +1,14 @@
 /**
  * 
  */
-package com.scloud;
+package com.scloud.follower;
 
 import java.util.Comparator;
 import java.util.PriorityQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import com.scloud.follower.model.EventData;
 
 import io.reactivex.Scheduler;
 import io.reactivex.schedulers.Schedulers;
@@ -17,18 +19,18 @@ import io.reactivex.schedulers.Schedulers;
  */
 public class Constants {
 
-	static int threadCount = Runtime.getRuntime().availableProcessors();
-	static ExecutorService threadPoolExecutor = Executors.newFixedThreadPool(threadCount);
-	static Scheduler scheduler = Schedulers.from(threadPoolExecutor);
+	private static int threadCount = Runtime.getRuntime().availableProcessors();
+	private static ExecutorService threadPoolExecutor = Executors.newFixedThreadPool(threadCount);
+	public static Scheduler scheduler = Schedulers.from(threadPoolExecutor);
 
-	static Long count = 1L;
+	public static Long messageSendNumber = 1L;
 	private static final Object countLock = new Object();
 	private static final Object queueLock = new Object();
 	
 
 	public static void incrementCount() {
 		synchronized (countLock) {
-			count++;
+			messageSendNumber++;
 		}
 	}
 
@@ -54,7 +56,7 @@ public class Constants {
 
 		@Override
 		public int compare(EventData o1, EventData o2) {
-			return (int) (o1.messageNumber - o2.messageNumber);
+			return (int) (o1.getMessageNumber() - o2.getMessageNumber());
 		}
 	});
 }
