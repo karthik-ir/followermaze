@@ -7,7 +7,6 @@ import java.net.Socket;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.scloud.followermaze.model.EventData;
 import com.scloud.followermaze.service.ObservableProvider;
 import com.scloud.followermaze.service.ObserverProvider;
 
@@ -40,16 +39,13 @@ public class App {
 
 	private static void begin(ServerSocket clientServerSocket, Socket eventSocket) throws IOException {
 		try {
-			ObservableProvider observers = new ObservableProvider();
-			ObserverProvider subscribers = new ObserverProvider();
+			ObservableProvider observableProvider = new ObservableProvider();
+			Observable<Object> queueObservable = observableProvider.getQueueObservable();
+			Flowable<Object> eventsObservable = observableProvider.getEventsObservable(eventSocket);
 
-			// Observables
-			Observable<EventData> queueObservable = observers.getQueueObservable();
-			Flowable<EventData> eventsObservable = observers.getEventsObservable(eventSocket);
-
-			// Observers
-			subscribers.subscribeWithEventProvider(eventsObservable);
-			subscribers.watchForClientAndSubscribeWithQueue(clientServerSocket, queueObservable);
+			ObserverProvider observerProvider = new ObserverProvider();
+			observerProvider.subscribeWithEventProvider(eventsObservable);
+			observerProvider.watchForClientAndSubscribeWithQueue(clientServerSocket, queueObservable);
 		} catch (IOException e) {
 			throw e;
 		}

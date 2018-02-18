@@ -21,7 +21,7 @@ import io.reactivex.Observable;
  */
 public class ObservableProvider {
 
-	public Flowable<EventData> getEventsObservable(Socket eventSocket) throws IOException {
+	public Flowable<Object> getEventsObservable(Socket eventSocket) throws IOException {
 		return Flowable.create((source) -> {
 			BufferedReader in = new BufferedReader(new InputStreamReader(eventSocket.getInputStream()));
 			while (!source.isCancelled()) {
@@ -33,13 +33,10 @@ public class ObservableProvider {
 			}
 			in.close();
 			source.onComplete();
-		}, BackpressureStrategy.BUFFER).subscribeOn(Constants.scheduler).observeOn(Constants.scheduler).map(model -> {
-			new Helper().processInputLine((EventData) model);
-			return (EventData) model;
-		});
+		}, BackpressureStrategy.BUFFER).subscribeOn(Constants.scheduler).observeOn(Constants.scheduler);
 	}
 
-	public Observable<EventData> getQueueObservable() {
+	public Observable<Object> getQueueObservable() {
 		return Observable.create((x) -> {
 			while (true) {
 				EventData peek = Constants.peek();
@@ -50,8 +47,6 @@ public class ObservableProvider {
 					Constants.incrementCount();
 				}
 			}
-		}).observeOn(Constants.scheduler).share().map(raw -> {
-			return (EventData) raw;
-		});
+		}).observeOn(Constants.scheduler).share();
 	}
 }

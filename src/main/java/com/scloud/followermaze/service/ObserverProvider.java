@@ -25,13 +25,16 @@ public class ObserverProvider {
 
 	private static final Logger logger = LogManager.getLogger(ObserverProvider.class);
 
-	public void subscribeWithEventProvider(Flowable<EventData> eventsObservable) {
-		eventsObservable.subscribe((x) -> {
+	public void subscribeWithEventProvider(Flowable<Object> eventsObservable) {
+		eventsObservable.map(model -> {
+			new Helper().processInputLine((EventData) model);
+			return (EventData) model;
+		}).subscribe((x) -> {
 			Constants.offer(x);
 		});
 	}
 
-	public void watchForClientAndSubscribeWithQueue(ServerSocket clientSocket, Observable<EventData> events)
+	public void watchForClientAndSubscribeWithQueue(ServerSocket clientSocket, Observable<Object> events)
 			throws IOException {
 		logger.info("Registering connected clients");
 		while (true) {
@@ -42,7 +45,9 @@ public class ObserverProvider {
 					UserData ud = new UserData(socket);
 					ud.setUserId(userId);
 					logger.info("Client {} Connected on port {} ", userId, socket.getPort());
-					events.observeOn(Constants.scheduler).subscribe((event) -> {
+					events.map(raw -> {
+						return (EventData) raw;
+					}).observeOn(Constants.scheduler).subscribe((event) -> {
 						followEventObserver(ud, event);
 					});
 				});
