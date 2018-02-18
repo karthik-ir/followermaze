@@ -23,7 +23,7 @@ public class App {
 	private static final Logger logger = LogManager.getLogger(App.class);
 
 	public static void main(String[] args) throws IOException {
-		logger.info("Waiting for client to connect...");
+		logger.info("Starting....");
 		String clientPort = System.getenv("clientListenerPort");
 		String eventPort = System.getenv("eventListenerPort");
 
@@ -51,8 +51,7 @@ public class App {
 			try {
 				eventProducer(subject);
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+				logger.error("FATAL!! Error while closing the socket. ", e);
 			}
 		});
 
@@ -84,7 +83,7 @@ public class App {
 						logger.info("Client {} Connected on port {} ", userId, socket.getPort());
 						new EventObserver(subject, ud);
 					} catch (IOException e) {
-						logger.error("Error while reading data from stream ", e);
+						logger.error("Error while reading data from stream... Stopping Execution ", e);
 						throw new RuntimeException(e);
 					}
 				});
@@ -93,7 +92,7 @@ public class App {
 		} catch (SocketException e) {
 			logger.info("Stopped Subscribing for clients");
 		} catch (IOException e) {
-			logger.error("Error while waiting for clients ", e);
+			logger.error("Error while waiting for clients.. Stopping Execution ", e);
 			throw new RuntimeException(e);
 		} finally {
 			logger.info("Shutting Down. Bye!");
@@ -102,6 +101,7 @@ public class App {
 	}
 
 	private static void eventProducer(Observable subject) throws IOException {
+		logger.info("Started to watch queue for new messages...");
 		while (!(Constants.isEmpty() && Constants.isComplete())) {
 			EventData peek = Constants.peek();
 			if (peek != null
@@ -112,6 +112,7 @@ public class App {
 			}
 		}
 
+		logger.debug("Closing Sockets");
 		sockets.stream().parallel().forEach(x -> {
 			try {
 				x.close();
@@ -119,12 +120,15 @@ public class App {
 				e.printStackTrace();
 			}
 		});
+		
+		logger.debug("closing client server socket");
 		clientServerSocket.close();
 		logger.info("Stopped listening to Queue");
 	}
 
 	private static void readInputstreamAndEnqueue(Socket eventSocket) {
 		try {
+			logger.info("Started to look for incoming events.");
 			BufferedReader in = new BufferedReader(new InputStreamReader(eventSocket.getInputStream()));
 			while (true) {
 				String inputLine = in.readLine();
