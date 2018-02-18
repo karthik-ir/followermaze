@@ -33,21 +33,21 @@ public class Constants {
 	}
 
 	public static EventData poll() {
-//		synchronized (queueLock) {
+		synchronized (queueLock) {
 			return sortedEvents.poll();
-//		}
+		}
 	}
 
 	public static void offer(EventData data) {
-//		synchronized (queueLock) {
+		synchronized (queueLock) {
 			sortedEvents.offer(data);
-//		}
+		}
 	}
 
 	public static EventData peek() {
-//		synchronized (queueLock) {
+		synchronized (queueLock) {
 			return sortedEvents.peek();
-//		}
+		}
 	}
 
 	private static PriorityQueue<EventData> sortedEvents = new PriorityQueue<>(new Comparator<EventData>() {
