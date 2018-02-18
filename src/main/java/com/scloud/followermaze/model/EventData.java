@@ -51,5 +51,4 @@ public class EventData {
 		super();
 		this.inputLine = inputLine;
 	}
-
 }

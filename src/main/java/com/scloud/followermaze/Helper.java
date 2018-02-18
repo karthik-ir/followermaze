@@ -1,7 +1,7 @@
 /**
  * 
  */
-package com.scloud.followermaze.service;
+package com.scloud.followermaze;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -24,7 +24,7 @@ public class Helper {
 
 	private static final Logger logger = LogManager.getLogger(Helper.class);
 
-	public void processInputLine(EventData model) throws InterruptedException {
+	public void processInputLine(EventData model) {
 		String[] split = model.getInputLine().split("\\|");
 		if (split.length >= 2 && EventTypes.fromString(split[1]) != null) {
 			EventTypes eventType = EventTypes.fromString(split[1]);

@@ -14,20 +14,11 @@ import java.util.Set;
 public class UserData {
 	private String userId;
 	private Socket socket;
-	private long messageNumber = 0L;
 	private Set<String> follows = new HashSet<>();
 
 	public UserData(Socket socket) {
 		super();
 		this.socket = socket;
-	}
-
-	public long getMessageNumber() {
-		return messageNumber;
-	}
-
-	public void setMessageNumber(long messageNumber) {
-		this.messageNumber = messageNumber;
 	}
 
 	public String getUserId() {
