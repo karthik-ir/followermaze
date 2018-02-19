@@ -19,13 +19,14 @@ public class Main {
 		ServerSocket eventServerSocket = new ServerSocket(eventPort != null ? Integer.parseInt(eventPort) : 9090);
 
 		// RUN the server
-		FollowerMaze mazeRunner = new FollowerMaze(clientServerSocket,eventServerSocket);
+		FollowerMaze mazeRunner = new FollowerMaze(clientServerSocket, eventServerSocket);
 		try {
-			mazeRunner.begin(clientServerSocket, eventServerSocket.accept());
+			mazeRunner.startUp(clientServerSocket, eventServerSocket.accept());
 		} catch (IOException e) {
 			logger.error("ERROR Downstream ", e);
+		} finally {
+			mazeRunner.shutDown();
 		}
 	}
 
-	
 }

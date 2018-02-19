@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.scloud.followermaze.exception.BadInputException;
 import com.scloud.followermaze.model.EventData;
 
 /**
@@ -26,7 +27,7 @@ public class Observable {
 		return data;
 	}
 
-	public void setData(EventData data) throws IOException {
+	public void setData(EventData data) throws IOException, BadInputException {
 		this.data = data;
 		notifyAllObservers();
 	}
@@ -43,7 +44,7 @@ public class Observable {
 		observers.add(observer);
 	}
 
-	public void notifyAllObservers() throws IOException {
+	public void notifyAllObservers() throws IOException, BadInputException {
 		for (Observer observer : observers) {
 			observer.subscribe();
 		}

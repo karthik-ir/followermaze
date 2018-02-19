@@ -23,14 +23,18 @@ import com.scloud.followermaze.model.UserData;
  * @author karthik
  *
  */
+/**
+ * @author karthik
+ *
+ */
 public class FollowerMaze {
 
 	private static final Logger logger = LogManager.getLogger(FollowerMaze.class);
 
 	private ServerSocket clientServerSocket;
 	private ServerSocket eventServerSocket;
-	List<Socket> clientSockets;
-	Constants constants;
+	private List<Socket> clientSockets;
+	private Constants constants;
 
 	public FollowerMaze(ServerSocket clientServerSocket, ServerSocket eventServerSocket) {
 		this.clientServerSocket = clientServerSocket;
@@ -39,7 +43,7 @@ public class FollowerMaze {
 		constants = new Constants();
 	}
 
-	public void begin(ServerSocket clientServerSocket, Socket eventSocket) {
+	public void startUp(ServerSocket clientServerSocket, Socket eventSocket) throws IOException {
 
 		Observable subject = new Observable();
 
@@ -48,12 +52,7 @@ public class FollowerMaze {
 		});
 
 		constants.threadPoolExecutor.execute(() -> {
-			try {
-				eventProducer(subject);
-			} catch (IOException e) {
-				logger.error("FATAL!! Error while closing the socket. ", e);
-				shutDown();
-			}
+			eventProducer(subject);
 		});
 
 		constants.threadPoolExecutor.execute(() -> {
@@ -61,91 +60,131 @@ public class FollowerMaze {
 		});
 	}
 
+	
+	/**
+	 * @param clientServerSocket
+	 * @param subject
+	 * 
+	 * @method waitForClientsAndSubscribe
+	 * 
+	 * Waits for the clients to be connected and registers each with the observable. 
+	 */
 	private void waitForClientsAndSubscribe(ServerSocket clientServerSocket, Observable subject) {
 		try {
 			while (!constants.isEmpty() || !constants.isComplete()) {
 				Socket socket = clientServerSocket.accept();
 				clientSockets.add(socket);
-				constants.threadPoolExecutor.execute(() -> {
-					try {
-						String userId;
-						userId = new Helper().readValueFromInputStream(socket.getInputStream());
-						UserData ud = new UserData(socket);
-						ud.setUserId(userId);
-						logger.info("Client {} Connected on port {} ", userId, socket.getPort());
-						new EventObserver(subject, ud);
-					} catch (IOException e) {
-						logger.error("Error while reading data from stream... Stopping Execution ", e);
-						throw new RuntimeException(e);
-					}
-				});
+				String userId;
+				userId = new Helper().readValueFromInputStream(socket.getInputStream());
+				UserData ud = new UserData(socket);
+				ud.setUserId(userId);
+				logger.info("Client {} Connected on port {} ", userId, socket.getPort());
+				new EventObserver(subject, ud);
 			}
 		} catch (SocketException e) {
 			logger.info("Stopped Subscribing for clients");
 		} catch (IOException e) {
-			logger.error("Error while waiting for clients.. Stopping Execution ", e);
+			logger.error("Error on client socket... Stopping Execution ", e);
+			shutDown();
 			throw new RuntimeException(e);
 		} finally {
-			logger.info("Shutting Down. Bye!");
-			constants.threadPoolExecutor.shutdown();
+			shutDownExecutor();
 		}
 	}
 
-	private void eventProducer(Observable subject) throws IOException {
+	/**
+	 * @param subject
+	 * @method eventProducer
+	 * 
+	 * Watches the min priority queue for the next message to be processed.
+	 * and increments the message count.  
+	 */
+	private void eventProducer(Observable subject) {
 		logger.info("Started to watch queue for new messages...");
-		while (!(constants.isEmpty() && constants.isComplete())) {
-			EventData peek = constants.peek();
-			if (peek != null
-					&& Long.toString(peek.getMessageNumber()).equals(Long.toString(constants.getMessageCounter()))) {
-				EventData latestEvent = constants.poll();
-				subject.setData(latestEvent);
-				constants.incrementCount();
+		try {
+			while (!(constants.isEmpty() && constants.isComplete())) {
+				EventData peek = constants.peek();
+				if (peek != null && Long.toString(peek.getMessageNumber())
+						.equals(Long.toString(constants.getMessageCounter()))) {
+					EventData latestEvent = constants.poll();
+					try {
+						subject.setData(latestEvent);
+					} catch (BadInputException e) {
+						logger.error("Published bad event. Ignoring..", e);
+					}
+					constants.incrementCount();
+				}
 			}
+		} catch (IOException e) {
+			logger.error("Error on client socket... Stopping Execution ", e);
+			shutDown();
+			throw new RuntimeException(e);
+		} finally {
+			shutDownClientConnections();
+
 		}
-		logger.debug("Closing Sockets");
-		clientSockets.stream().parallel().forEach(x -> {
-			try {
-				x.close();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		});
-		logger.debug("closing client server socket");
-		clientServerSocket.close();
-		logger.info("Stopped listening to Queue");
 	}
 
+	/**
+	 * @param eventSocket
+	 * @method readInputstreamAndEnqueue
+	 * 
+	 * Reads the stream incoming from the event socket and on input, 
+	 * Processes the input and enqueues. 
+	 */
 	private void readInputstreamAndEnqueue(Socket eventSocket) {
-		try {
+		try (BufferedReader in = new BufferedReader(new InputStreamReader(eventSocket.getInputStream()));) {
 			logger.info("Started to look for incoming events.");
-			BufferedReader in = new BufferedReader(new InputStreamReader(eventSocket.getInputStream()));
 			while (true) {
 				String inputLine = in.readLine();
 				if (inputLine == null)
 					break;
 				if (inputLine != null && !inputLine.isEmpty()) {
-					EventData value = new Helper().processInputLine(inputLine);
-					constants.offer(value);
+					EventData value;
+					try {
+						value = new Helper().processInputLine(inputLine);
+						constants.offer(value);
+					} catch (BadInputException e) {
+						logger.error("Wrong kind of Input {} from the event. Ignoring and Proceeding...", inputLine, e);
+					}
 				}
 			}
-			in.close();
-			eventSocket.close();
-			constants.setComplete(true);
-			eventServerSocket.close();
-		} catch (IOException | BadInputException e) {
+
+		} catch (IOException e) {
 			logger.error("Error while reading Event Inputstream ", e);
 		} finally {
-			logger.info("Stopped reading of events");
+			constants.setComplete(true);
+			shutDownEventConnection();
 		}
 	}
 
-	public void shutDown() {
+	private void shutDownEventConnection() {
 		try {
 			eventServerSocket.close();
-			clientServerSocket.close();
+			logger.info("Stopped reading of events");
 		} catch (IOException e) {
-			throw new RuntimeException("Error on stopping server");
+			throw new RuntimeException("Exception on shut down");
 		}
+	}
+
+	private void shutDownClientConnections() {
+		try {
+			clientServerSocket.close();
+			logger.info("Stopped listening for events");
+		} catch (IOException e) {
+			throw new RuntimeException("Exception on shut down");
+		}
+	}
+
+	private void shutDownExecutor() {
+		constants.threadPoolExecutor.shutdown();
+		logger.info("Shutting Down. Bye!");
+	}
+
+	public void shutDown() {
+		shutDownEventConnection();
+		shutDownClientConnections();
+		shutDownExecutor();
 
 	}
 }

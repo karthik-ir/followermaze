@@ -89,7 +89,11 @@ public class Helper {
 		}
 	}
 
-	public boolean notifyClient(UserData ud, EventData event) throws IOException {
+	public boolean notifyClient(UserData ud, EventData event) throws IOException, BadInputException {
+		if (ud == null || ud.getUserId() == null || ud.getUserId().isEmpty() || event == null
+				|| event.getEventType() == null)
+			throw new BadInputException("Bad input provided ");
+		
 		String userId = ud.getUserId();
 		boolean sent = false;
 		switch (event.getEventType()) {
