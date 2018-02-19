@@ -21,7 +21,7 @@ public class EventObserver extends Observer {
 	@Override
 	public void subscribe() throws IOException {
 		logger.debug("{} Received {} ", userData.getUserId(), subject.getData().getInputLine());
-		new Helper().checkIfEventValidAndNotify(userData, subject.getData());
+		new Helper().notifyClient(userData, subject.getData());
 	}
 
 	public UserData getUserData() {

@@ -124,8 +124,7 @@ public class FollowerMaze {
 				if (inputLine == null)
 					break;
 				if (inputLine != null && !inputLine.isEmpty()) {
-					EventData value = new EventData(inputLine);
-					new Helper().processInputLine(value);
+					EventData value = new Helper().processInputLine(inputLine);
 					constants.offer(value);
 				}
 			}

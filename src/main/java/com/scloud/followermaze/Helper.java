@@ -25,14 +25,20 @@ public class Helper {
 
 	private static final Logger logger = LogManager.getLogger(Helper.class);
 
-	public void processInputLine(EventData model) throws BadInputException {
-		if (model == null || model.getInputLine() == null)
-			throw new BadInputException("input value is null", null);
-		String[] split = model.getInputLine().split("\\|");
-		EventTypes eventType = EventTypes.fromString(split[1]);
-		if (split.length < 2 || eventType == null)
-			throw new BadInputException("Input " + model.getInputLine() + " Is Bad ", null);
+	public EventData processInputLine(String inputLine) throws BadInputException {
 
+		if (inputLine == null || inputLine == null || inputLine.isEmpty())
+			throw new BadInputException("input value is null", null);
+
+		String[] split = inputLine.split("\\|");
+		if (split.length < 2)
+			throw new BadInputException("Input " + inputLine + " Is Bad ", null);
+		EventTypes eventType = EventTypes.fromString(split[1]);
+
+		if (eventType == null)
+			throw new BadInputException("Event doesnot exisit for Input " + inputLine, null);
+
+		EventData model = new EventData(inputLine);
 		model.setMessageNumber(Long.parseLong(split[0]));
 
 		switch (eventType) {
@@ -61,6 +67,7 @@ public class Helper {
 		default:
 			break;
 		}
+		return model;
 	}
 
 	public String readValueFromInputStream(InputStream x) throws IOException {
@@ -69,39 +76,41 @@ public class Helper {
 		return inputLine;
 	}
 
-	public void send(EventData event, UserData user) throws IOException {
+	public Boolean send(EventData event, UserData user) throws IOException {
 		PrintWriter out;
 		try {
 			logger.info("Sending {} to {} ", event.getInputLine(), user.getUserId());
 			out = new PrintWriter(user.getSocket().getOutputStream(), true);
 			out.println(event.getInputLine());
+			return true;
 		} catch (IOException e) {
 			logger.error(" Error getting Output stream while sending {} ", event.getInputLine(), e);
 			throw e;
 		}
 	}
 
-	public void checkIfEventValidAndNotify(UserData ud, EventData event) throws IOException {
+	public boolean notifyClient(UserData ud, EventData event) throws IOException {
 		String userId = ud.getUserId();
+		boolean sent = false;
 		switch (event.getEventType()) {
 		case BROADCAST:
-			send(event, ud);
+			sent = send(event, ud);
 			break;
 		case FOLLOW:
 			if (event.getFromUserId().equals(userId)) {
 				ud.getFollows().add(event.getToUserId());
 			} else if (event.getToUserId().equals(userId)) {
-				send(event, ud);
+				sent = send(event, ud);
 			}
 			break;
 		case PRIVATE:
 			if (event.getToUserId().equals(userId)) {
-				send(event, ud);
+				sent = send(event, ud);
 			}
 			break;
 		case STATUS_UPDATE:
 			if (ud.getFollows().contains(event.getFromUserId())) {
-				send(event, ud);
+				sent = send(event, ud);
 			}
 			break;
 		case UNFOLLOW:
@@ -112,5 +121,6 @@ public class Helper {
 		default:
 			break;
 		}
+		return sent;
 	}
 }
