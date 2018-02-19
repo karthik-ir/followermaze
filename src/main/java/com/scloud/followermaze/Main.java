@@ -24,7 +24,6 @@ public class Main {
 			mazeRunner.startUp(clientServerSocket, eventServerSocket.accept());
 		} catch (IOException e) {
 			logger.error("ERROR Downstream ", e);
-		} finally {
 			mazeRunner.shutDown();
 		}
 	}

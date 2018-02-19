@@ -1,7 +1,7 @@
 /**
  * 
  */
-package com.scloud;
+package com.scloud.followermaze;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -19,7 +19,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.junit.MockitoJUnitRunner;
 
-import com.scloud.followermaze.Helper;
 import com.scloud.followermaze.exception.BadInputException;
 import com.scloud.followermaze.model.EventData;
 import com.scloud.followermaze.model.EventTypes;
@@ -30,7 +29,7 @@ import com.scloud.followermaze.model.UserData;
  *
  */
 @RunWith(MockitoJUnitRunner.class)
-public class FollowerMazeHelper {
+public class FollowerMazeHelperTest{
 
 	/**
 	 * Test method for
